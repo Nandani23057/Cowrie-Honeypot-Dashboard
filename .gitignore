@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+cowrie-env/
+
+# Cowrie logs and captured data
+var/
+*.log
+*.json
+downloads/
+tty/
+
+# Secrets and environment files
+.env
+.env.*
+*.pem
+*.key
+
+# System files
+.DS_Store
