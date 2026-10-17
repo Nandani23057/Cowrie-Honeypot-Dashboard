@@ -1,7 +1,8 @@
 from pathlib import Path
 import json
 from collections import Counter
-
+import os
+from supabase import create_client
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -132,6 +133,48 @@ def load_events(log_path):
     return df, invalid_lines, read_error
 
 
+def load_supabase_events():
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_READ_KEY")
+
+    if not url or not key:
+        return pd.DataFrame(), 0, "Supabase read credentials missing"
+
+    try:
+        client = create_client(url, key)
+        response = (
+            client.table("cowrie_events")
+            .select("event_time,event_type,source_ip")
+            .order("event_time", desc=True)
+            .limit(1000)
+            .execute()
+        )
+
+        df = pd.DataFrame(response.data or [])
+
+        if df.empty:
+            return df, 0, None
+
+        df = df.rename(columns={
+            "event_time": "timestamp",
+            "event_type": "eventid",
+            "source_ip": "src_ip",
+        })
+
+        df["src_ip"] = df["src_ip"].fillna("Unknown")
+        df["username"] = ""
+        df["message"] = ""
+        df["session"] = ""
+        df["timestamp_parsed"] = pd.to_datetime(
+            df["timestamp"], errors="coerce", utc=True
+        )
+
+        return df.sort_values("timestamp_parsed"), 0, None
+
+    except Exception as exc:
+        return pd.DataFrame(), 0, f"Supabase read failed: {type(exc).__name__}"
+
+
 def style_fig(fig, height=340):
     fig.update_layout(
         height=height,
@@ -212,14 +255,17 @@ st.title("🛡 Cowrie Security Dashboard")
 st.write("SSH honeypot activity, authentication events, source IPs and commands.")
 
 log_path = Path(log_path_text).expanduser()
-df, invalid_lines, read_error = load_events(log_path)
+if os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_READ_KEY"):
+    df, invalid_lines, read_error = load_supabase_events()
+else:
+    df, invalid_lines, read_error = load_events(log_path)
 
 if read_error:
     st.error(f"Could not read the log file: {read_error}")
     st.info("Check the path and the account's read permissions.")
     st.stop()
 
-if not log_path.is_file():
+if not (os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_READ_KEY")) and not log_path.is_file():
     st.error("Cowrie JSON log file was not found.")
     st.code(str(log_path))
     st.info("Enter the correct path in the sidebar.")
