@@ -6,7 +6,7 @@ from supabase import create_client
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-
+from streamlit_autorefresh import st_autorefresh
 # =========================================================
 # Cowrie Security Dashboard — Old Photograph theme
 # =========================================================
@@ -251,6 +251,8 @@ st.sidebar.caption("Only monitor systems you own or are authorized to assess.")
 st.sidebar.markdown("---")
 st.sidebar.caption("Theme: Old Photograph")
 
+# Automatically refresh dashboard every 60 seconds
+st_autorefresh(interval=60 * 1000, key="cowrie_auto_refresh")
 st.title("🛡 Cowrie Security Dashboard")
 st.write("SSH honeypot activity, authentication events, source IPs and commands.")
 
